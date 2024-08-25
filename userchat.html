@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Firebase Chat</title>
+  <style>
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #b2b2b2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+#chat-window {
+    width: 800px;
+    height: 500px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+    backdrop-filter: blur(10px);       
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+#chat-window h2 {
+    background: rgba(0, 41, 85, 0.8);
+    color: #ffffff;
+    margin: 0;
+    padding: 15px;
+    text-align: center;
+    border-bottom: 1px solid rgba(0, 123, 255, 0.5);
+}
+
+#messages {
+    list-style-type: none;
+    margin: 0;
+    padding: 15px;
+    flex-grow: 1;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+#messages li {
+    display: inline-block;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+    max-width: 75%;
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+#messages li.sent {
+    background: rgba(217, 217, 217, 0.7);
+    float: right;
+    clear: both;
+}
+
+#messages li.received {
+    background: rgba(189, 189, 189, 0.7);
+    float: left;
+    clear: both;
+}
+
+#messages li .message-timestamp {
+    display: block;
+    font-size: 0.8em;
+    color: #000000;
+    margin-top: 5px;  
+}
+
+
+#messageInput {
+    width: calc(100% - 100px);
+    padding: 10px;
+    display: inline;
+    border: none;
+    border-top: 1px solid #ffffff;
+    border-right: 1px solid #e0e0e0;
+    box-sizing: border-box;
+    border-radius: 0 0 0 10px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+#sendButton {
+    width: 100px;
+    display: inline;
+    background: rgba(138, 183, 232, 0.8);
+    color: #ffffff;
+    border: none;
+    border-radius: 0 0 10px 0;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#sendButton:hover {
+    background: rgba(0, 86, 179, 0.8);
+}
+
+#messages::-webkit-scrollbar {
+    width: 8px;
+}
+
+#messages::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 123, 255, 0.8);
+    border-radius: 10px;
+}
+
+#messages::-webkit-scrollbar-track {
+    background-color: #f9f9f9;
+}
+
+.base {
+    display: flex;
+}
+
+  </style>
+</head>
+
+<body>
+
+  <div id="chat-window">
+    <h2>Chat Web App</h2>
+    <ul id="messages"></ul>
+    <div class="base">
+      <input type="text" id="messageInput" placeholder="Type a message">
+      <button id="sendButton">Send</button>
+    </div>
+
+  </div>
+
+
+
+  <script type="module">
+    let username = localStorage.getItem('username');
+
+    if (!username) {
+      username = prompt("Please Tell Us Your Name");
+
+      if (username) {
+        localStorage.setItem('username', username);
+      }
+    }
+
+  
+    console.log(`Welcome, ${username}!`);
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import { getDatabase, ref, onValue, push, set, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
+
+
+    const firebaseConfig = {
+            apiKey: "AIzaSyCbc0neV2C-nPqBkvWlRq-MrCzTMcqzTfU",
+            authDomain: "chat-app-fd32f.firebaseapp.com",
+            projectId: "chat-app-fd32f",
+            storageBucket: "chat-app-fd32f.appspot.com",
+            messagingSenderId: "208335974963",
+            appId: "1:208335974963:web:0334315a8df702b7176946",
+            measurementId: "G-ZRJMMR87VX",
+            databaseURL: "https://chat-app-fd32f-default-rtdb.firebaseio.com/"
+
+        };
+
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    console.log("Firebase initialized:", app);
+
+
+    let currentId = 1;
+    openChat(1);
+    function openChat(Id) {
+      currentId = Id;
+      const chatRef = ref(db, `chats/${Id}`);
+      onValue(chatRef, (snapshot) => {
+        console.log("Chat snapshot:", snapshot.val());
+        const messages = snapshot.val();
+        console.log(messages, "messag");
+        const messagesList = document.getElementById('messages');
+        messagesList.innerHTML = '';
+
+        for (const messageId in messages) {
+          const message = messages[messageId];
+          console.log(messageId, "messag");
+          const li = document.createElement('li');
+          li.classList.add(message.messageSentBy === username ? 'sent' : 'received');
+          li.style.backgroundColor = message.color;
+          li.style.color = getContrastColor(message.color);
+
+          
+          const messageContent = document.createElement('span');
+          messageContent.className = 'message-content';
+          messageContent.textContent = `${message.messageSentBy}: ${message.message}`;
+          li.appendChild(messageContent);
+
+          
+          const timestamp = message.timestamp ? new Date(message.timestamp) : new Date();
+          const formattedTime = formatTimestamp(timestamp);
+          const messageTimestamp = document.createElement('span');
+          messageTimestamp.className = 'message-timestamp';
+          messageTimestamp.textContent = formattedTime;
+          li.appendChild(messageTimestamp);
+
+          messagesList.appendChild(li);
+      }
+  });
+}
+    document.getElementById('sendButton').addEventListener('click', () => {
+      sendMessage();
+    });
+
+    document.getElementById('messageInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    });
+    function sendMessage() {
+      const messageInput = document.getElementById('messageInput');
+      const messageText = messageInput.value;
+
+      if (messageText) {
+        const chatRef = ref(db, `chats/${currentId}`);
+        const newMessageRef = push(chatRef);
+
+        const message = {
+
+          message: messageText,
+          messageSentBy: username,
+          messageType: "Text",
+          timestamp: serverTimestamp(),
+          color: 'yellow'
+        };
+
+        set(newMessageRef, message)
+          .then(() => {
+            messageInput.value = '';
+          })
+          .catch((error) => {
+            console.error("Error sending message:", error);
+          });
+      }
+    }
+
+
+    function formatTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+    function getContrastColor(bgColor) {
+      const colorMap = {
+        black: "#000000",
+        blue: "#0000FF",
+        red: "#FF0000",
+        green: "#008000",
+        yellow: "#FFFF00",
+        purple: "#800080",
+        orange: "#FFA500",
+        magenta: "#FF00FF",
+      };
+
+      const colorHex = colorMap[bgColor.toLowerCase()] || "#FFFFFF";
+      const r = parseInt(colorHex.substr(1, 2), 16);
+      const g = parseInt(colorHex.substr(3, 2), 16);
+      const b = parseInt(colorHex.substr(5, 2), 16);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+      return brightness > 125 ? 'black' : 'white';
+    }
+  </script>
+</body>
+
+</html>
